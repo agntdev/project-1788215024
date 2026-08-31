@@ -1,0 +1,20 @@
+[
+  {
+    "name": "المصادر",
+    "steps": [
+      {
+        "expect": [
+          {
+            "method": "sendMessage",
+            "payload": {
+              "text": "عرض جميع المصادر التعليمية"
+            }
+          }
+        ],
+        "send": {
+          "callback": "resources:list"
+        }
+      }
+    ]
+  }
+]
