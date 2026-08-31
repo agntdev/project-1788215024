@@ -5,9 +5,9 @@
       {
         "expect": [
           {
-            "method": "sendMessage",
+            "method": "editMessageText",
             "payload": {
-              "text": "عرض قائمة المواد الدراسية"
+              "text": "اختر المادة التي تريد مراجعتها."
             }
           }
         ],

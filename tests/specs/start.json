@@ -7,7 +7,7 @@
         "expect": [
           {
             "method": "sendMessage",
-            "payload": { "text": "👋 Welcome! Tap a button below to get started." }
+            "payload": { "text": "مرحباً بك في سند لطلاب الشهادة السودانية دفعة 27. اختر ما تحتاجه من القائمة.", "reply_markup": { "inline_keyboard": [[{"text":"مواد دراسية","callback_data":"subjects:list"},{"text":"المصادر","callback_data":"resources:list"}],[{"text":"الأسئلة والاستفسارات","callback_data":"questions:start"},{"text":"تواصل مع الإدارة","callback_data":"admin:start"}],[{"text":"إدارة المحتوى","callback_data":"admin:manage"}],[{"text":"❓ Help","callback_data":"menu:help"}]] } }
           }
         ]
       }

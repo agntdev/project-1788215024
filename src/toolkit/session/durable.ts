@@ -40,6 +40,7 @@ export interface WorkerEnv {
   WEBHOOK_SECRET?: string;
   CHAT_DO: DONamespace;
   DB?: unknown; // D1 binding (app data); see AGENTS.md
+  ADMIN_CHAT_ID?: string;
   BOT_TELEMETRY_URL?: string;
   BOT_TELEMETRY_SECRET?: string;
   BOT_TELEMETRY_SALT?: string;
@@ -152,6 +153,47 @@ export class ChatDO {
       await this.state.storage.put("reminders", list);
       await this.rearm(list);
       return new Response(null, { status: 204 });
+    }
+
+    // Domain records use one named Durable Object and explicit index records;
+    // no keyspace scan is needed to browse subjects or questions.
+    if (url.pathname === "/study-data" && request.method === "POST") {
+      const body = (await request.json()) as Record<string, unknown>;
+      const seed = async () => {
+        const current = await this.state.storage.get<unknown[]>("subjects");
+        if (current) return current;
+        const names = [["math", "رياضيات"], ["physics", "فيزياء"], ["chemistry", "كيمياء"], ["biology", "أحياء"], ["islamic", "علوم إسلامية"], ["arabic", "لغة عربية"], ["english", "إنجليزي"], ["history", "تاريخ"]];
+        const subjects = names.map(([id, name]) => ({ id, name, description: `مواد ${name} لدفعة 27`, resources: [] }));
+        await this.state.storage.put("subjects", subjects);
+        return subjects;
+      };
+      const subjects = await seed() as Array<{ id: string; name: string; description: string; resources: unknown[]; studyPlan?: string }>;
+      if (body.action === "catalog") return Response.json(subjects);
+      if (body.action === "save-subject" && body.subject && typeof body.subject === "object") {
+        const subject = body.subject as { id?: unknown; name?: unknown };
+        if (typeof subject.id !== "string" || typeof subject.name !== "string") return new Response("bad subject", { status: 400 });
+        const next = [...subjects.filter((s) => s.id !== subject.id), body.subject];
+        await this.state.storage.put("subjects", next); return Response.json({ ok: true });
+      }
+      if (body.action === "delete-subject" && typeof body.id === "string") {
+        await this.state.storage.put("subjects", subjects.filter((s) => s.id !== body.id)); return Response.json({ ok: true });
+      }
+      if (body.action === "save-resource" && typeof body.subjectId === "string" && body.resource && typeof body.resource === "object") {
+        const at = subjects.findIndex((s) => s.id === body.subjectId); if (at < 0) return new Response("missing subject", { status: 404 });
+        subjects[at] = { ...subjects[at], resources: [...subjects[at].resources, body.resource] };
+        await this.state.storage.put("subjects", subjects); return Response.json({ ok: true });
+      }
+      if (body.action === "save-question" && body.question && typeof body.question === "object") {
+        const question = body.question as { id?: unknown }; if (typeof question.id !== "string") return new Response("bad question", { status: 400 });
+        const ids = (await this.state.storage.get<string[]>("question-ids")) ?? [];
+        await this.state.storage.put({ ["question:" + question.id]: body.question, "question-ids": [...ids, question.id] }); return Response.json({ ok: true });
+      }
+      if (body.action === "questions") {
+        const ids = (await this.state.storage.get<string[]>("question-ids")) ?? [];
+        const all = await Promise.all(ids.map((id) => this.state.storage.get<unknown>("question:" + id)));
+        return Response.json(all.filter((item) => item !== undefined));
+      }
+      return new Response("bad request", { status: 400 });
     }
 
     return new Response("not found", { status: 404 });

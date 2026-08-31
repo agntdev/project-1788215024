@@ -31,7 +31,10 @@ export type OwnerAwareCtx = {
   env?: Record<string, unknown> | null;
   from?: { id: number } | undefined;
   chat?: { id: number } | undefined;
-  reply: (text: string, ...args: unknown[]) => unknown | Promise<unknown>;
+  // `any` keeps this structural helper compatible with grammY's overloaded
+  // reply signature, whose optional argument is narrower than `unknown`.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  reply: (text: string, ...args: any[]) => unknown | Promise<unknown>;
   answerCallbackQuery?: (
     opts?: { text?: string; show_alert?: boolean },
   ) => unknown | Promise<unknown>;
@@ -96,13 +99,11 @@ export function isOwner(ctx: {
  * On deny: answers callback (when present) and replies in plain language.
  * Does not throw — callers should `return` when this is false.
  */
-export async function requireOwner(ctx: OwnerAwareCtx): Promise<boolean> {
+export async function requireOwner(ctx: OwnerAwareCtx, copy?: { unset: string; denied: string }): Promise<boolean> {
   if (isOwner(ctx)) return true;
 
   const unset = adminChatId(ctx) === undefined;
-  const text = unset
-    ? "Owner access isn't set up yet."
-    : "Only the owner can do that.";
+  const text = unset ? (copy?.unset ?? "Owner access isn't set up yet.") : (copy?.denied ?? "Only the owner can do that.");
 
   try {
     if (ctx.answerCallbackQuery) {

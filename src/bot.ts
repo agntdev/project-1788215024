@@ -6,10 +6,15 @@ import type { StorageAdapter } from "grammy";
 // bot grows. Durable domain data must NOT live here — use the toolkit's
 // persistent storage (see AGENTS.md).
 export interface Session {
-  // example: step?: "awaiting_amount";
+  step?: "question" | "admin-message" | "add-subject" | "add-resource";
+  draftText?: string;
+  senderName?: string;
+  senderUsername?: string;
 }
 
-export type Ctx = BotContext<Session>;
+// Worker entry attaches its bindings before feature handlers run. Keeping this
+// optional preserves the tokenless Node harness shape.
+export type Ctx = BotContext<Session> & { env?: Record<string, unknown> };
 
 /**
  * BuildBotOptions lets a runtime-specific ENTRY POINT (never a feature handler)
