@@ -7,7 +7,7 @@
         "expect": [
           {
             "method": "sendMessage",
-            "payload": { "text": "👋 Welcome! Tap a button below to get started." }
+            "payload": { "text": "مرحباً بك في سند لطلاب الشهادة السودانية دفعة 27.\nاختر ما تحتاجه من القائمة." }
           }
         ]
       }
