@@ -1,0 +1,20 @@
+[
+  {
+    "name": "مواد دراسية",
+    "steps": [
+      {
+        "expect": [
+          {
+            "method": "sendMessage",
+            "payload": {
+              "text": "عرض قائمة المواد الدراسية"
+            }
+          }
+        ],
+        "send": {
+          "callback": "subjects:list"
+        }
+      }
+    ]
+  }
+]
