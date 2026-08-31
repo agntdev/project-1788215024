@@ -19,7 +19,7 @@ export { ChatDO } from "./toolkit/session/durable.js";
 
 // A grammY context under Workers additionally carries the runtime `env`, so a
 // handler can reach bindings + helpers (e.g. remindAt(ctx.env, …), ctx.env.DB).
-export type WorkerCtx = Ctx & { env: WorkerEnv };
+export type WorkerCtx = Ctx & { env: Record<string, unknown> & WorkerEnv };
 
 // Build the bot ONCE per isolate. The token is stable for the isolate's
 // lifetime; grammY requires init() before handling updates. A FAILED build is
@@ -37,7 +37,7 @@ function getBot(env: WorkerEnv): Promise<Bot<Ctx>> {
       // would run AFTER the feature handlers and leave ctx.env undefined).
       const attachEnv = new Composer<Ctx>();
       attachEnv.use((ctx, next) => {
-        (ctx as WorkerCtx).env = env;
+        (ctx as WorkerCtx).env = env as Record<string, unknown> & WorkerEnv;
         return next();
       });
       const bot = await buildBot(env.BOT_TOKEN, {

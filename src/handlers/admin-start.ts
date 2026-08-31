@@ -1,17 +1,19 @@
 import { Composer } from "grammy";
-
-// SCAFFOLD — generated from the bot blueprint BEFORE the agent runs.
-// Keep a LIVE registration (.command / .callbackQuery / …) so this feature is
-// never an empty stub. Replace the reply body with real logic + copy; if you
-// change the user-facing text, update tests/specs to match EXACTLY.
-// Do NOT rewrite src/bot.ts — buildBot() already auto-loads this module.
-// Menu: wire this into /start via registerMainMenuItem({ label: "تواصل مع الإدارة", data: "admin:start" }) if the toolkit exposes it.
-
-const composer = new Composer();
-
-composer.callbackQuery("admin:start", async (ctx) => {
-  await ctx.answerCallbackQuery();
-  await ctx.reply("إرسال رسالة مباشرة للإدارة");
-});
-
+import type { Ctx } from "../bot.js";
+import { addResource, addSubject, deleteSubject, questionLog, subjects } from "../domain.js";
+import { inlineButton, inlineKeyboard, isOwner, registerMainMenuItem, requireOwner } from "../toolkit/index.js";
+import { prompt } from "./questions-start.js";
+registerMainMenuItem({ label: "تواصل مع الإدارة", data: "admin:start", order: 40 });
+const composer = new Composer<Ctx>();
+const desk = inlineKeyboard([[inlineButton("إضافة مادة", "desk:add-subject")], [inlineButton("إضافة مصدر", "desk:add-resource")], [inlineButton("حذف مادة", "desk:delete-subject")], [inlineButton("سجل الأسئلة", "desk:questions")], [inlineButton("العودة للقائمة", "menu:main")]]);
+composer.callbackQuery("admin:start", async (ctx) => { await ctx.answerCallbackQuery(); if (isOwner(ctx)) return ctx.reply("لوحة الإدارة جاهزة.", { reply_markup: desk }); await prompt(ctx, "contact"); });
+composer.callbackQuery("desk:add-subject", async (ctx) => { await ctx.answerCallbackQuery(); if (!(await requireOwner(ctx))) return; ctx.session.step = "subject-name"; await ctx.reply("اكتب اسم المادة الجديدة.", { reply_markup: { force_reply: true, input_field_placeholder: "اسم المادة" } }); });
+composer.on("message:text", async (ctx, next) => { if (ctx.session.step !== "subject-name") return next(); const name = ctx.message.text.trim(); if (name.length < 2) return ctx.reply("اكتب اسماً واضحاً للمادة.", { reply_markup: { force_reply: true, input_field_placeholder: "اسم المادة" } }); ctx.session.step = undefined; await ctx.reply((await addSubject(ctx, name)) ? "أُضيفت المادة." : "إدارة المواد غير متاحة حالياً.", { reply_markup: desk }); });
+composer.callbackQuery("desk:delete-subject", async (ctx) => { await ctx.answerCallbackQuery(); if (!(await requireOwner(ctx))) return; const list = await subjects(ctx); await ctx.reply("اختر المادة المراد حذفها.", { reply_markup: inlineKeyboard([...list.map((s) => [inlineButton(s.name, `desk:delete:${s.id}`)]), [inlineButton("العودة", "admin:start")]]) }); });
+composer.callbackQuery(/^desk:delete:([a-z-]+)$/, async (ctx) => { await ctx.answerCallbackQuery(); if (!(await requireOwner(ctx))) return; const id = ctx.match[1]; await ctx.editMessageText("سيُحذف محتوى المادة ومواردها نهائياً.", { reply_markup: inlineKeyboard([[inlineButton("تأكيد الحذف", `desk:confirm-delete:${id}`)], [inlineButton("إلغاء", "admin:start")]]) }); });
+composer.callbackQuery(/^desk:confirm-delete:([a-z-]+)$/, async (ctx) => { await ctx.answerCallbackQuery(); if (!(await requireOwner(ctx))) return; await deleteSubject(ctx, ctx.match[1]); await ctx.editMessageText("حُذفت المادة ومواردها.", { reply_markup: desk }); });
+composer.callbackQuery("desk:add-resource", async (ctx) => { await ctx.answerCallbackQuery(); if (!(await requireOwner(ctx))) return; const list = await subjects(ctx); await ctx.reply("اختر المادة للمصدر الجديد.", { reply_markup: inlineKeyboard([...list.map((s) => [inlineButton(s.name, `desk:resource:${s.id}`)]), [inlineButton("العودة", "admin:start")]]) }); });
+composer.callbackQuery(/^desk:resource:([a-z-]+)$/, async (ctx) => { await ctx.answerCallbackQuery(); if (!(await requireOwner(ctx))) return; ctx.session.step = "resource"; ctx.session.selectedSubject = ctx.match[1]; await ctx.reply("أرسل البيانات بهذا الترتيب في سطر واحد: العنوان | النوع | الوصف | الرابط\nاترك الرابط فارغاً إذا لم يتوفر.", { reply_markup: { force_reply: true, input_field_placeholder: "العنوان | النوع | الوصف | الرابط" } }); });
+composer.on("message:text", async (ctx, next) => { if (ctx.session.step !== "resource") return next(); const parts = ctx.message.text.split("|").map((v) => v.trim()); if (parts.length !== 4 || parts.slice(0, 3).some((v) => !v)) return ctx.reply("استخدم: العنوان | النوع | الوصف | الرابط", { reply_markup: { force_reply: true, input_field_placeholder: "العنوان | النوع | الوصف | الرابط" } }); const url = parts[3] || null; if (url && !/^https:\/\//.test(url)) return ctx.reply("استخدم رابطاً يبدأ بـ https:// أو اتركه فارغاً.", { reply_markup: { force_reply: true, input_field_placeholder: "العنوان | النوع | الوصف | الرابط" } }); const okay = await addResource(ctx, ctx.session.selectedSubject ?? "", parts[0], parts[1], parts[2], url); ctx.session.step = undefined; ctx.session.selectedSubject = undefined; await ctx.reply(okay ? "أُضيف المصدر." : "إدارة المصادر غير متاحة حالياً.", { reply_markup: desk }); });
+composer.callbackQuery("desk:questions", async (ctx) => { await ctx.answerCallbackQuery(); if (!(await requireOwner(ctx))) return; const list = await questionLog(ctx); if (list === undefined) return ctx.reply("سجل الأسئلة غير متاح حالياً.", { reply_markup: desk }); if (!list.length) return ctx.reply("لا توجد أسئلة بعد.", { reply_markup: desk }); const text = list.map((q) => `${q.kind === "question" ? "سؤال" : "رسالة"}: ${q.senderName}${q.senderUsername ? ` (${q.senderUsername})` : ""}\n${q.text}`).join("\n\n"); await ctx.reply(text.length > 3900 ? `${text.slice(0, 3900)}\n\nاعرض السجل على دفعات لاحقاً.` : text, { reply_markup: desk }); });
 export default composer;

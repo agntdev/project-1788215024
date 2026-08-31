@@ -7,13 +7,30 @@
           {
             "method": "sendMessage",
             "payload": {
-              "text": "فتح نموذج إرسال سؤال"
+              "text": "اكتب سؤالك الدراسي في رسالة واحدة."
             }
           }
         ],
         "send": {
           "callback": "questions:start"
         }
+      }
+    ]
+  },
+  {
+    "name": "السؤال يمر بالمراجعة قبل الإرسال",
+    "steps": [
+      {
+        "send": { "callback": "questions:start" },
+        "expect": [{ "method": "sendMessage", "payload": { "text": "اكتب سؤالك الدراسي في رسالة واحدة." } }]
+      },
+      {
+        "send": { "text": "كيف أراجع قوانين الحركة؟" },
+        "expect": [{ "method": "sendMessage", "payload": { "text": "راجع رسالتك ثم اختر الإرسال." } }]
+      },
+      {
+        "send": { "callback": "draft:question:send" },
+        "expect": [{ "method": "editMessageText", "payload": { "text": "حفظ الرسالة غير متاح حالياً. حاول مرة أخرى لاحقاً." } }]
       }
     ]
   }

@@ -7,13 +7,30 @@
           {
             "method": "sendMessage",
             "payload": {
-              "text": "عرض قائمة المواد الدراسية"
+              "text": "اختر المادة التي تريد دراستها."
             }
           }
         ],
         "send": {
           "callback": "subjects:list"
         }
+      }
+    ]
+  },
+  {
+    "name": "التنقل داخل المادة يعرض خطة الدراسة",
+    "steps": [
+      {
+        "send": { "callback": "subjects:list" },
+        "expect": [{ "method": "sendMessage", "payload": { "text": "اختر المادة التي تريد دراستها." } }]
+      },
+      {
+        "send": { "callback": "subject:math" },
+        "expect": [{ "method": "editMessageText", "payload": { "text": "الرياضيات\nالجبر والهندسة والتفاضل.\nاختر ما تريد عرضه." } }]
+      },
+      {
+        "send": { "callback": "mat:math:plan" },
+        "expect": [{ "method": "editMessageText", "payload": { "text": "خطة الرياضيات\nراجع درساً واحداً، ثم حل تمارين اليوم نفسه." } }]
       }
     ]
   }
